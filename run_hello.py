@@ -25,19 +25,19 @@ class L1Cache(Cache):
         self.mem_side = bus.cpu_side_ports
 
 class L1ICache(L1Cache):
-    size = '16kB'
+    size = '32kB'
 
     def connectCPU(self, cpu):
         self.cpu_side = cpu.icache_port
 
 class L1DCache(L1Cache):
-    size = '64kB'
+    size = '128kB'
 
     def connectCPU(self, cpu):
         self.cpu_side = cpu.dcache_port
 
 class L2Cache(Cache):
-    size = '256kB'
+    size = '512kB'
     assoc = 8
     tag_latency = 20
     data_latency = 20
@@ -53,6 +53,7 @@ class L2Cache(Cache):
 
 system.cpu.icache = L1ICache()
 system.cpu.dcache = L1DCache()
+
 system.cpu.icache.connectCPU(system.cpu)
 system.cpu.dcache.connectCPU(system.cpu)
 
@@ -66,6 +67,10 @@ system.l2cache.connectCPUSideBus(system.l2bus)
 system.membus = SystemXBar()
 system.l2cache.connectMemSideBus(system.membus)
 
+
+system.cpu.icache.assoc = 1  # Direct-mapped
+system.cpu.dcache.assoc = 2  # 2-way set-associative
+system.l2cache.assoc = 4  # 4-way set-associative
 
 
 # Set the clock frequency of the system (and all of its children)
