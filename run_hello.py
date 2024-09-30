@@ -4,10 +4,15 @@ from m5.objects import *
 # create the system we are going to simulate
 system = System()
 
+# FIXME maybe set assoc somehow??
+
 # Create a simple CPU
 # You can use ISA-specific CPU models for different workloads:
 # `RiscvTimingSimpleCPU`, `ArmTimingSimpleCPU`.
 system.cpu = X86TimingSimpleCPU()
+
+system.cpu.mmu.dtb = X86TLB(size=64, entry_type='data')  # Data TLB (64 entries, 4-way set associative)
+system.cpu.mmu.itb = X86TLB(size=64, entry_type='instruction')  # Instruction TLB (64 entries, 4-way set associative)
 
 class L1Cache(Cache):
     assoc = 2
