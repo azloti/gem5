@@ -1,1 +1,0 @@
-echo 'Started, calculating page fault rate:';var=$(ps -o min_flt,maj_flt 1;);echo $var;m5 exit;
