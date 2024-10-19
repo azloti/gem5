@@ -23,6 +23,7 @@ from common.cores.arm import (
 # the cache class may be 'None' if the particular cache is not present.
 cpu_types = {
     "atomic": (AtomicSimpleCPU, None, None, None),
+    "timing": (TimingSimpleCPU, devices.L1I, devices.L1D, devices.L2),
     "minor": (MinorCPU, devices.L1I, devices.L1D, devices.L2),
     "hpi": (HPI.HPI, HPI.HPI_ICache, HPI.HPI_DCache, HPI.HPI_L2),
     "o3": (
@@ -54,7 +55,7 @@ def get_processes(cmd):
 def create(args):
     """Create and configure the system object."""
 
-    cpu_class = cpu_types[args.cpu][0]
+    cpu_class = cpu_types["timing"][0]
     mem_mode = cpu_class.memory_mode()
     # Only simulate caches when using a timing CPU (e.g., the HPI model)
     want_caches = True if mem_mode == "timing" else False
@@ -70,7 +71,7 @@ def create(args):
         args.num_cores,
         args.cpu_freq,
         "1.2V",
-        *cpu_types[args.cpu],
+        *cpu_types["timing"],
         tarmac_gen=args.tarmac_gen,
         tarmac_dest=args.tarmac_dest,
     )
@@ -119,13 +120,13 @@ def main():
         nargs="*",
         help="Command(s) to run",
     )
-    parser.add_argument(
-        "--cpu",
-        type=str,
-        choices=list(cpu_types.keys()),
-        default="atomic",
-        help="CPU model to use",
-    )
+    # parser.add_argument(
+    #     "--cpu",
+    #     type=str,
+    #     choices=list(cpu_types.keys()),
+    #     default="timing",
+    #     help="CPU model to use",
+    # )
     parser.add_argument("--cpu-freq", type=str, default="4GHz")
     parser.add_argument(
         "--num-cores", type=int, default=1, help="Number of CPU cores"
