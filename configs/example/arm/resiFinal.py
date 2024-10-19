@@ -4,8 +4,6 @@ import shlex
 
 import m5
 from m5.objects import *
-from m5.util import addToPath
-
 m5.util.addToPath("../..")
 
 import devices
@@ -13,25 +11,9 @@ from common import (
     MemConfig,
     ObjectList,
 )
-from common.cores.arm import (
-    HPI,
-    O3_ARM_v7a,
-)
 
-# Pre-defined CPU configurations. Each tuple must be ordered as : (cpu_class,
-# l1_icache_class, l1_dcache_class, l2_Cache_class). Any of
-# the cache class may be 'None' if the particular cache is not present.
 cpu_types = {
-    "atomic": (AtomicSimpleCPU, None, None, None),
     "timing": (TimingSimpleCPU, devices.L1I, devices.L1D, devices.L2),
-    "minor": (MinorCPU, devices.L1I, devices.L1D, devices.L2),
-    "hpi": (HPI.HPI, HPI.HPI_ICache, HPI.HPI_DCache, HPI.HPI_L2),
-    "o3": (
-        O3_ARM_v7a.O3_ARM_v7a_3,
-        O3_ARM_v7a.O3_ARM_v7a_ICache,
-        O3_ARM_v7a.O3_ARM_v7a_DCache,
-        O3_ARM_v7a.O3_ARM_v7aL2,
-    ),
 }
 
 
@@ -68,8 +50,8 @@ def create(args):
     # private L1 caches and a shared L2 cache.
     system.cpu_cluster = devices.ArmCpuCluster(
         system,
-        args.num_cores,
-        args.cpu_freq,
+        1, # Number of cores
+        "4GHz", # Frequency
         "1.2V",
         *cpu_types["timing"],
         tarmac_gen=args.tarmac_gen,
@@ -95,10 +77,10 @@ def create(args):
     # Parse the command line and get a list of Processes instances
     # that we can pass to gem5.
     processes = get_processes(args.commands_to_run)
-    if len(processes) != args.num_cores:
+    if len(processes) != 1: # Number of cores
         print(
             "Error: Cannot map %d command(s) onto %d CPU(s)"
-            % (len(processes), args.num_cores)
+            % (len(processes), 1)
         )
         sys.exit(1)
 
@@ -119,17 +101,6 @@ def main():
         metavar="command(s)",
         nargs="*",
         help="Command(s) to run",
-    )
-    # parser.add_argument(
-    #     "--cpu",
-    #     type=str,
-    #     choices=list(cpu_types.keys()),
-    #     default="timing",
-    #     help="CPU model to use",
-    # )
-    parser.add_argument("--cpu-freq", type=str, default="4GHz")
-    parser.add_argument(
-        "--num-cores", type=int, default=1, help="Number of CPU cores"
     )
     parser.add_argument(
         "--mem-type",
@@ -167,28 +138,13 @@ def main():
 
     args = parser.parse_args()
 
-    # Create a single root node for gem5's object hierarchy. There can
-    # only exist one root node in the simulator at any given
-    # time. Tell gem5 that we want to use syscall emulation mode
-    # instead of full system mode.
     root = Root(full_system=False)
-
-    # Populate the root node with a system. A system corresponds to a
-    # single node with shared memory.
     root.system = create(args)
 
-    # Instantiate the C++ object hierarchy. After this point,
-    # SimObjects can't be instantiated anymore.
     m5.instantiate()
 
-    # Start the simulator. This gives control to the C++ world and
-    # starts the simulator. The returned event tells the simulation
-    # script why the simulator exited.
     event = m5.simulate()
 
-    # Print the reason for the simulation exit. Some exit codes are
-    # requests for service (e.g., checkpoints) from the simulation
-    # script. We'll just ignore them here and exit.
     print(f"{event.getCause()} ({event.getCode()}) @ {m5.curTick()}")
 
 
