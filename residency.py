@@ -2,6 +2,7 @@
 import m5
 from m5.objects import *
 from caches import *
+# from sim.power import PowerModel
 
 ### Power Management code
 
@@ -11,9 +12,15 @@ def _apply_pm(simobj, power_model, so_class=None):
         if so_class is not None and not isinstance(desc, so_class):
             continue
 
-        print("Setting now power model for", desc.path())
+        path = desc.path()
+        
+        print("Setting now power model for", path)
+
         desc.power_state.default_state = "ON"
         desc.power_model = power_model(desc.path())
+
+        # Return early
+        # return
 
 class CpuPowerOn(MathExprPowerModel):
     def __init__(self, cpu_path, **kwargs):
@@ -43,9 +50,11 @@ class CpuPowerModel(PowerModel):
             CpuPowerOff(),              # SRAM_RETENTION
             CpuPowerOff(),              # OFF
         ]
+        # self.subsystem = system
 
 
 ### Power Management end
+
 
 
 
@@ -105,7 +114,9 @@ system.cpu.createInterruptController()
 
 print("Current power state:", system.cpu.dcache.power_state)
 print("Current power model: ", system.cpu.dcache.power_model)
-_apply_pm(system.cpu, CpuPowerModel)
+
+# system.cpu.power_model = CpuPowerModel(system.cpu.path())
+_apply_pm(system.cpu, CpuPowerModel, so_class=m5.objects.BaseCPU)
 
 # Connect the system up to the membus
 system.system_port = system.membus.cpu_side_ports
@@ -119,7 +130,6 @@ system.mem_ctrl.port = system.membus.mem_side_ports
 thispath = os.path.dirname(os.path.realpath(__file__))
 binary = os.path.join(
     thispath,
-    # "../../",
     "tests/test-progs/hello/bin/arm/linux/hello",
 )
 
