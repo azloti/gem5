@@ -3,6 +3,52 @@ import m5
 from m5.objects import *
 from caches import *
 
+### Power Management code
+
+
+def _apply_pm(simobj, power_model, so_class=None):
+    for desc in simobj.descendants():
+        if so_class is not None and not isinstance(desc, so_class):
+            continue
+
+        print("Setting now power model for", desc.path())
+        desc.power_state.default_state = "ON"
+        desc.power_model = power_model(desc.path())
+
+class CpuPowerOn(MathExprPowerModel):
+    def __init__(self, cpu_path, **kwargs):
+        super(CpuPowerOn, self).__init__(**kwargs)
+        self.dyn = "voltage * 2 * {}.ipc".format(cpu_path)
+        self.st = "4 * temp"
+
+
+class CpuPowerClkGated(MathExprPowerModel):
+    def __init__(self, cpu_path, **kwargs):
+        super(CpuPowerClkGated, self).__init__(**kwargs)
+        self.dyn = "voltage / sim_seconds"
+        self.st = "4 * temp"
+
+
+class CpuPowerOff(MathExprPowerModel):
+    dyn = "0"
+    st = "0"
+
+
+class CpuPowerModel(PowerModel):
+    def __init__(self, cpu_path, **kwargs):
+        super(CpuPowerModel, self).__init__(**kwargs)
+        self.pm = [
+            CpuPowerOn(cpu_path),       # ON
+            CpuPowerClkGated(cpu_path), # CLK_GATED
+            CpuPowerOff(),              # SRAM_RETENTION
+            CpuPowerOff(),              # OFF
+        ]
+
+
+### Power Management end
+
+
+
 # Add the caches scripts to our path
 m5.util.addToPath("config/")
 
@@ -57,14 +103,12 @@ system.l2cache.connectMemSideBus(system.membus)
 # Connecting PIO and interrupt port to membus (Necessary for X86)
 system.cpu.createInterruptController()
 
+print("Current power state:", system.cpu.dcache.power_state)
+print("Current power model: ", system.cpu.dcache.power_model)
+_apply_pm(system.cpu, CpuPowerModel)
+
 # Connect the system up to the membus
 system.system_port = system.membus.cpu_side_ports
-
-# Connect the CPU MMU to the membus
-# system.cpu.mmu = ARMMMU()
-# system.cpu.mmu.itb.size = 2                     # Change TLB size
-# system.cpu.mmu.dtb.size = 2                     # Change TLB size
-# system.cpu.mmu.connectWalkerPorts(system.membus.cpu_side_ports, system.membus.cpu_side_ports)
 
 # Setting up memory controller to connect to the membus
 system.mem_ctrl = MemCtrl()
