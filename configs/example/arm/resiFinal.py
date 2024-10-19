@@ -12,6 +12,56 @@ from common import (
     ObjectList,
 )
 
+
+### Start of power management stuff
+
+def _apply_pm(simobj, power_model, so_class=None):
+    for desc in simobj.descendants():
+        if so_class is not None and not isinstance(desc, so_class):
+            continue
+
+        print ("Setting now power model for", desc.path())
+        print ("Power_state", desc.power_state.default_state)
+        print ("Power_model", desc.power_model)
+        desc.power_state.default_state = "ON"
+        desc.power_model = power_model(desc.path())
+
+class CpuPowerOn(MathExprPowerModel):
+    def __init__(self, cpu_path, **kwargs):
+        super(CpuPowerOn, self).__init__(**kwargs)
+        self.dyn = "voltage * 2 * {}.ipc".format(cpu_path)
+        self.st = "4 * temp"
+
+
+class CpuPowerClkGated(MathExprPowerModel): # Clock gated
+    def __init__(self, cpu_path, **kwargs):
+        super(CpuPowerClkGated, self).__init__(**kwargs)
+        self.dyn = "voltage / simSeconds"
+        self.st = "4 * temp"
+
+
+class CpuPowerOff(MathExprPowerModel): # Power gated
+    dyn = "0"
+    st = "0"
+
+
+class CpuPowerModel(PowerModel):
+    def __init__(self, cpu_path, **kwargs):
+        super(CpuPowerModel, self).__init__(**kwargs)
+        self.pm = [
+            CpuPowerOn(cpu_path),       # ON
+            CpuPowerClkGated(cpu_path), # CLK_GATED
+            CpuPowerOff(),              # SRAM_RETENTION
+            CpuPowerOff(),              # OFF
+        ]
+        # self.subsystem = system
+
+
+### Power Management end
+
+
+### End of power management stuff
+
 cpu_types = {
     "timing": (TimingSimpleCPU, devices.L1I, devices.L1D, devices.L2),
 }
@@ -140,6 +190,8 @@ def main():
 
     root = Root(full_system=False)
     root.system = create(args)
+
+    _apply_pm(root.system.cpu_cluster, CpuPowerModel, so_class=m5.objects.BaseCPU)
 
     m5.instantiate()
 
