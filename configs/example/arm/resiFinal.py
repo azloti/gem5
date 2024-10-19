@@ -101,7 +101,7 @@ def create(args):
     system.cpu_cluster = devices.ArmCpuCluster(
         system,
         1, # Number of cores
-        "4GHz", # Frequency
+        "256MHz", # Frequency
         "1.2V",
         *cpu_types["timing"],
         tarmac_gen=args.tarmac_gen,

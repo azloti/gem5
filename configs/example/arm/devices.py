@@ -52,8 +52,8 @@ class L1I(L1_ICache):
     response_latency = 1
     mshrs = 4
     tgts_per_mshr = 8
-    size = "48kB"
-    assoc = 3
+    size = "16kB"
+    assoc = 2
 
 
 class L1D(L1_DCache):
@@ -62,7 +62,7 @@ class L1D(L1_DCache):
     response_latency = 1
     mshrs = 16
     tgts_per_mshr = 16
-    size = "32kB"
+    size = "16kB"
     assoc = 2
     write_buffers = 16
 
@@ -73,14 +73,14 @@ class L2(L2Cache):
     response_latency = 5
     mshrs = 32
     tgts_per_mshr = 8
-    size = "1MB"
+    size = "128kB"
     assoc = 16
     write_buffers = 8
     clusivity = "mostly_excl"
 
 
 class L3(Cache):
-    size = "16MB"
+    size = "128kB"
     assoc = 16
     tag_latency = 20
     data_latency = 20
