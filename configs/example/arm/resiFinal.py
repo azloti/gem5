@@ -20,9 +20,6 @@ def _apply_pm(simobj, power_model, so_class=None):
         if so_class is not None and not isinstance(desc, so_class):
             continue
 
-        print ("Setting now power model for", desc.path())
-        print ("Power_state", desc.power_state.default_state)
-        print ("Power_model", desc.power_model)
         desc.power_state.default_state = "ON"
         desc.power_model = power_model(desc.path())
 
@@ -89,15 +86,11 @@ def create(args):
 
     cpu_class = cpu_types["timing"][0]
     mem_mode = cpu_class.memory_mode()
-    # Only simulate caches when using a timing CPU (e.g., the HPI model)
-    want_caches = True if mem_mode == "timing" else False
 
     system = devices.SimpleSeSystem(
         mem_mode=mem_mode,
     )
 
-    # Add CPUs to the system. A cluster of CPUs typically have
-    # private L1 caches and a shared L2 cache.
     system.cpu_cluster = devices.ArmCpuCluster(
         system,
         1, # Number of cores
@@ -111,7 +104,7 @@ def create(args):
     # Create a cache hierarchy for the cluster. We are assuming that
     # clusters have core-private L1 caches and an L2 that's shared
     # within the cluster.
-    system.addCaches(want_caches, last_cache_level=2)
+    system.addCaches(True, last_cache_level=2)
 
     # Tell components about the expected physical memory ranges. This
     # is, for example, used by the MemConfig helper to determine where
@@ -193,6 +186,7 @@ def main():
 
     _apply_pm(root.system.cpu_cluster, CpuPowerModel, so_class=m5.objects.BaseCPU)
 
+    # m5.stats.periodicStatDump(10000000)
     m5.instantiate()
 
     event = m5.simulate()
