@@ -89,20 +89,8 @@ LocalBP::updateHistories(ThreadID tid, Addr pc, bool uncond,
 bool
 LocalBP::lookup(ThreadID tid, Addr branch_addr, void * &bp_history)
 {
-    bool taken;
-    unsigned local_predictor_idx = getLocalIndex(branch_addr);
-
-    DPRINTF(Fetch, "Looking up index %#x\n",
-            local_predictor_idx);
-
-    uint8_t counter_val = localCtrs[local_predictor_idx];
-
-    DPRINTF(Fetch, "prediction is %i.\n",
-            (int)counter_val);
-
-    taken = getPrediction(counter_val);
-
-    return taken;
+    // abort();
+    return false; // Always predict not taken
 }
 
 void

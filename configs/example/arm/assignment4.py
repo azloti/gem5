@@ -16,50 +16,6 @@ from common.cores.arm import (
     O3_ARM_v7a,
 )
 
-class MyARMCPU(ArmO3CPU):
-    LQEntries = 16
-    SQEntries = 16
-    LSQDepCheckShift = 0
-    LFSTSize = 1024
-    SSITSize = 1024
-    decodeToFetchDelay = 1
-    renameToFetchDelay = 1
-    iewToFetchDelay = 1
-    commitToFetchDelay = 1
-    renameToDecodeDelay = 1
-    iewToDecodeDelay = 1
-    commitToDecodeDelay = 1
-    iewToRenameDelay = 1
-    commitToRenameDelay = 1
-    commitToIEWDelay = 1
-    fetchWidth = 3
-    fetchBufferSize = 16
-    fetchToDecodeDelay = 3
-    decodeWidth = 3
-    decodeToRenameDelay = 2
-    renameWidth = 3
-    renameToIEWDelay = 1
-    issueToExecuteDelay = 1
-    dispatchWidth = 6
-    issueWidth = 8
-    wbWidth = 8
-    fuPool = O3_ARM_v7a.O3_ARM_v7a_FUP()
-    iewToCommitDelay = 1
-    renameToROBDelay = 1
-    commitWidth = 8
-    squashWidth = 8
-    trapLatency = 13
-    backComSize = 5
-    forwardComSize = 5
-    numPhysIntRegs = 128
-    numPhysFloatRegs = 192
-    numPhysVecRegs = 48
-    numIQEntries = 32
-    numROBEntries = 40
-
-    switched_out = False
-    branchPred = None
-
 class MemOptions:
     def __init__(self):
         self.mem_type = "DDR3_1600_8x8"
@@ -74,8 +30,23 @@ def get_process(cmd):
 
     return process
 
+# Config options
+enable_superscalar = False
+enable_branch_pred = False
+enable_smt = False
+
+class MyCustomCPU(O3_ARM_v7a.O3_ARM_v7a_3):
+    issueWidth = enable_superscalar and 8 or 1
+    decodeWidth = enable_superscalar and 3 or 1
+    commitWidth = enable_superscalar and 8 or 1
+    squashWidth = enable_superscalar and 8 or 1
+    fetchWidth = enable_superscalar and 3 or 1
+    renameWidth = enable_superscalar and 3 or 1
+    wbWidth = enable_superscalar and 8 or 1
+    dispatchWidth = enable_superscalar and 6 or 1
+
 def create(args):
-    cpu_class = MyARMCPU
+    cpu_class = MyCustomCPU
     mem_mode = cpu_class.memory_mode()
 
     system = devices.SimpleSeSystem(
@@ -91,44 +62,36 @@ def create(args):
         num_cores,
         "512MHz",
         "1.2V",
-        MyARMCPU,
+        cpu_class,
         O3_ARM_v7a.O3_ARM_v7a_ICache,
         O3_ARM_v7a.O3_ARM_v7a_DCache,
         O3_ARM_v7a.O3_ARM_v7aL2,
     )
 
-    # Create a cache hierarchy for the cluster. We are assuming that
-    # clusters have core-private L1 caches and an L2 that's shared
-    # within the cluster.
     system.addCaches(True, last_cache_level=2)
 
-    # Tell components about the expected physical memory ranges. This
-    # is, for example, used by the MemConfig helper to determine where
-    # to map DRAMs in the physical address space.
     system.mem_ranges = [AddrRange(start=0, size="256MB")]
 
-    # Configure the off-chip memory system.
     MemConfig.config_mem(MemOptions(), system)
 
-    # Wire up the system's memory system
     system.connect()
 
-    # Parse the command line and get a list of Processes instances
-    # that we can pass to gem5.
     process = get_process(args.commands_to_run)
-
     system.workload = SEWorkload.init_compatible(process[0].executable)
 
     my_cpu = system.cpu_cluster.cpus[0]
-
     my_cpu.workload = process[0]
 
+    # Enable SMT
+    if enable_smt: # Enable SMT
+        my_cpu.numThreads = 2
+        my_cpu.smtNumFetchingThreads = 2
 
-    # Here, optionally add branch prediction
-    print("Current branch predictor: ", my_cpu.branchPred)
-    # my_cpu.branchPred = O3_ARM_v7a.O3_ARM_v7a_BP()
-    # print(my_cpu.branchPred)
 
+    if not enable_branch_pred:
+        my_cpu.branchPred = LocalBP() # Modified to disable branch prediction
+
+    print("Current branch predictor: ", my_cpu.branchPred.__class__)
 
     return system
 
