@@ -1,0 +1,1 @@
+./build/ARM/gem5.opt configs/example/arm/assignment4.py tests/test-progs/hello/bin/arm/linux/hello
