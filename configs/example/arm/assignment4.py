@@ -11,76 +11,60 @@ m5.util.addToPath("../..")
 import devices
 from common import (
     MemConfig,
-    ObjectList,
 )
 from common.cores.arm import (
     O3_ARM_v7a,
 )
 
-# Pre-defined CPU configurations. Each tuple must be ordered as : (cpu_class,
-# l1_icache_class, l1_dcache_class, l2_Cache_class). Any of
-# the cache class may be 'None' if the particular cache is not present.
-cpu_types = {
-    "o3": (
-        O3_ARM_v7a.O3_ARM_v7a_3,
-        O3_ARM_v7a.O3_ARM_v7a_ICache,
-        O3_ARM_v7a.O3_ARM_v7a_DCache,
-        O3_ARM_v7a.O3_ARM_v7aL2,
-    ),
-}
-
+class MemOptions:
+    def __init__(self):
+        self.mem_type = "DDR3_1600_8x8"
+        self.mem_channels = 2
 
 def get_processes(cmd):
-    """Interprets commands to run and returns a list of processes"""
-
     cwd = os.getcwd()
-    multiprocesses = []
-    for idx, c in enumerate(cmd):
-        argv = shlex.split(c)
+    argv = shlex.split(cmd[0])
 
-        process = Process(pid=100 + idx, cwd=cwd, cmd=argv, executable=argv[0])
-        process.gid = os.getgid()
+    process = Process(pid=100, cwd=cwd, cmd=argv, executable=argv[0])
+    process.gid = os.getgid()
 
-        print("info: %d. command and arguments: %s" % (idx + 1, process.cmd))
-        multiprocesses.append(process)
-
-    return multiprocesses
-
+    return [process]
 
 def create(args):
-    """Create and configure the system object."""
-
-    cpu_class = cpu_types["o3"][0]
+    cpu_class = O3_ARM_v7a.O3_ARM_v7a_3
     mem_mode = cpu_class.memory_mode()
-    # Only simulate caches when using a timing CPU (e.g., the HPI model)
-    want_caches = True if mem_mode == "timing" else False
 
     system = devices.SimpleSeSystem(
         mem_mode=mem_mode,
     )
 
+    num_cores = 1
+
     # Add CPUs to the system. A cluster of CPUs typically have
     # private L1 caches and a shared L2 cache.
     system.cpu_cluster = devices.ArmCpuCluster(
         system,
-        1, # Number of CPUs
+        num_cores,
         "512MHz",
         "1.2V",
-        *cpu_types["o3"],
+        O3_ARM_v7a.O3_ARM_v7a_3,
+        O3_ARM_v7a.O3_ARM_v7a_ICache,
+        O3_ARM_v7a.O3_ARM_v7a_DCache,
+        O3_ARM_v7a.O3_ARM_v7aL2,
     )
 
     # Create a cache hierarchy for the cluster. We are assuming that
     # clusters have core-private L1 caches and an L2 that's shared
     # within the cluster.
-    system.addCaches(want_caches, last_cache_level=2)
+    system.addCaches(True, last_cache_level=2)
 
     # Tell components about the expected physical memory ranges. This
     # is, for example, used by the MemConfig helper to determine where
     # to map DRAMs in the physical address space.
-    system.mem_ranges = [AddrRange(start=0, size=args.mem_size)]
+    system.mem_ranges = [AddrRange(start=0, size="256MB")]
 
     # Configure the off-chip memory system.
-    MemConfig.config_mem(args, system)
+    MemConfig.config_mem(MemOptions(), system)
 
     # Wire up the system's memory system
     system.connect()
@@ -88,7 +72,7 @@ def create(args):
     # Parse the command line and get a list of Processes instances
     # that we can pass to gem5.
     processes = get_processes(args.commands_to_run)
-    if len(processes) != args.num_cores:
+    if len(processes) != num_cores:
         print(
             "Error: Cannot map %d command(s) onto %d CPU(s)"
             % (len(processes), args.num_cores)
@@ -113,66 +97,16 @@ def main():
         nargs="*",
         help="Command(s) to run",
     )
-    parser.add_argument(
-        "--cpu",
-        type=str,
-        choices=list(cpu_types.keys()),
-        default="atomic",
-        help="CPU model to use",
-    )
-    parser.add_argument("--cpu-freq", type=str, default="4GHz")
-    parser.add_argument(
-        "--num-cores", type=int, default=1, help="Number of CPU cores"
-    )
-    parser.add_argument(
-        "--mem-type",
-        default="DDR3_1600_8x8",
-        choices=ObjectList.mem_list.get_names(),
-        help="type of memory to use",
-    )
-    parser.add_argument(
-        "--mem-channels", type=int, default=2, help="number of memory channels"
-    )
-    parser.add_argument(
-        "--mem-ranks",
-        type=int,
-        default=None,
-        help="number of memory ranks per channel",
-    )
-    parser.add_argument(
-        "--mem-size",
-        action="store",
-        type=str,
-        default="2GB",
-        help="Specify the physical memory size",
-    )
-
+    
     args = parser.parse_args()
 
-    # Create a single root node for gem5's object hierarchy. There can
-    # only exist one root node in the simulator at any given
-    # time. Tell gem5 that we want to use syscall emulation mode
-    # instead of full system mode.
     root = Root(full_system=False)
-
-    # Populate the root node with a system. A system corresponds to a
-    # single node with shared memory.
     root.system = create(args)
 
-    # Instantiate the C++ object hierarchy. After this point,
-    # SimObjects can't be instantiated anymore.
     m5.instantiate()
-
-    # Start the simulator. This gives control to the C++ world and
-    # starts the simulator. The returned event tells the simulation
-    # script why the simulator exited.
     event = m5.simulate()
 
-    # Print the reason for the simulation exit. Some exit codes are
-    # requests for service (e.g., checkpoints) from the simulation
-    # script. We'll just ignore them here and exit.
     print(f"{event.getCause()} ({event.getCode()}) @ {m5.curTick()}")
-
 
 if __name__ == "__m5_main__":
     main()
