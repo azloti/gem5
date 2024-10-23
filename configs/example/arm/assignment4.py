@@ -14,7 +14,6 @@ from common import (
     ObjectList,
 )
 from common.cores.arm import (
-    HPI,
     O3_ARM_v7a,
 )
 
@@ -64,12 +63,10 @@ def create(args):
     # private L1 caches and a shared L2 cache.
     system.cpu_cluster = devices.ArmCpuCluster(
         system,
-        args.num_cores,
-        args.cpu_freq,
+        1, # Number of CPUs
+        "512MHz",
         "1.2V",
         *cpu_types["o3"],
-        tarmac_gen=args.tarmac_gen,
-        tarmac_dest=args.tarmac_dest,
     )
 
     # Create a cache hierarchy for the cluster. We are assuming that
@@ -148,17 +145,6 @@ def main():
         type=str,
         default="2GB",
         help="Specify the physical memory size",
-    )
-    parser.add_argument(
-        "--tarmac-gen",
-        action="store_true",
-        help="Write a Tarmac trace.",
-    )
-    parser.add_argument(
-        "--tarmac-dest",
-        choices=TarmacDump.vals,
-        default="stdoutput",
-        help="Destination for the Tarmac trace output. [Default: stdoutput]",
     )
 
     args = parser.parse_args()
