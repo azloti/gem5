@@ -16,22 +16,66 @@ from common.cores.arm import (
     O3_ARM_v7a,
 )
 
+class MyARMCPU(ArmO3CPU):
+    LQEntries = 16
+    SQEntries = 16
+    LSQDepCheckShift = 0
+    LFSTSize = 1024
+    SSITSize = 1024
+    decodeToFetchDelay = 1
+    renameToFetchDelay = 1
+    iewToFetchDelay = 1
+    commitToFetchDelay = 1
+    renameToDecodeDelay = 1
+    iewToDecodeDelay = 1
+    commitToDecodeDelay = 1
+    iewToRenameDelay = 1
+    commitToRenameDelay = 1
+    commitToIEWDelay = 1
+    fetchWidth = 3
+    fetchBufferSize = 16
+    fetchToDecodeDelay = 3
+    decodeWidth = 3
+    decodeToRenameDelay = 2
+    renameWidth = 3
+    renameToIEWDelay = 1
+    issueToExecuteDelay = 1
+    dispatchWidth = 6
+    issueWidth = 8
+    wbWidth = 8
+    fuPool = O3_ARM_v7a.O3_ARM_v7a_FUP()
+    iewToCommitDelay = 1
+    renameToROBDelay = 1
+    commitWidth = 8
+    squashWidth = 8
+    trapLatency = 13
+    backComSize = 5
+    forwardComSize = 5
+    numPhysIntRegs = 128
+    numPhysFloatRegs = 192
+    numPhysVecRegs = 48
+    numIQEntries = 32
+    numROBEntries = 40
+
+    switched_out = False
+    branchPred = None
+
 class MemOptions:
     def __init__(self):
         self.mem_type = "DDR3_1600_8x8"
         self.mem_channels = 2
 
-def get_processes(cmd):
+def get_process(cmd):
     cwd = os.getcwd()
     argv = shlex.split(cmd[0])
 
     process = Process(pid=100, cwd=cwd, cmd=argv, executable=argv[0])
     process.gid = os.getgid()
 
-    return [process]
+    return process
 
 def create(args):
-    cpu_class = O3_ARM_v7a.O3_ARM_v7a_3
+    cpu_class = MyARMCPU
     mem_mode = cpu_class.memory_mode()
 
     system = devices.SimpleSeSystem(
@@ -47,7 +91,7 @@ def create(args):
         num_cores,
         "512MHz",
         "1.2V",
-        O3_ARM_v7a.O3_ARM_v7a_3,
+        MyARMCPU,
         O3_ARM_v7a.O3_ARM_v7a_ICache,
         O3_ARM_v7a.O3_ARM_v7a_DCache,
         O3_ARM_v7a.O3_ARM_v7aL2,
@@ -71,19 +115,20 @@ def create(args):
 
     # Parse the command line and get a list of Processes instances
     # that we can pass to gem5.
-    processes = get_processes(args.commands_to_run)
-    if len(processes) != num_cores:
-        print(
-            "Error: Cannot map %d command(s) onto %d CPU(s)"
-            % (len(processes), args.num_cores)
-        )
-        sys.exit(1)
+    process = get_process(args.commands_to_run)
 
-    system.workload = SEWorkload.init_compatible(processes[0].executable)
+    system.workload = SEWorkload.init_compatible(process[0].executable)
 
-    # Assign one workload to each CPU
-    for cpu, workload in zip(system.cpu_cluster.cpus, processes):
-        cpu.workload = workload
+    my_cpu = system.cpu_cluster.cpus[0]
+
+    my_cpu.workload = process[0]
+
+
+    # Here, optionally add branch prediction
+    print("Current branch predictor: ", my_cpu.branchPred)
+    # my_cpu.branchPred = O3_ARM_v7a.O3_ARM_v7a_BP()
+    # print(my_cpu.branchPred)
+
 
     return system
 
