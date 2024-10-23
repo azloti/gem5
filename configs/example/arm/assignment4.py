@@ -31,9 +31,9 @@ def get_process(cmd):
     return process
 
 # Config options
-enable_superscalar = False
-enable_branch_pred = False
-enable_smt = False
+enable_superscalar = True
+enable_branch_pred = True
+enable_smt = True
 
 class MyCustomCPU(O3_ARM_v7a.O3_ARM_v7a_3):
     issueWidth = enable_superscalar and 8 or 1
@@ -84,7 +84,6 @@ def create(args):
 
     # Enable SMT
     if enable_smt: # Enable SMT
-        my_cpu.numThreads = 2
         my_cpu.smtNumFetchingThreads = 2
 
 
